@@ -6,7 +6,13 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "sit": "vite --mode sit",
+    "uat": "vite --mode uat",
+    "pro": "vite --mode pro",
+    "build-sit": "vue-tsc && vite build --mode sit",
+    "build-uat": "vue-tsc && vite build --mode uat",
+    "build-pro": "vue-tsc && vite build --mode pro"
   },
   "dependencies": {
     "vue": "^3.2.47",
