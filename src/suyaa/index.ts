@@ -25,9 +25,36 @@ export class Suyaa {
     private events: Array<SuyaaEvent>;
     // 键集合
     private jwtKey = "suyaa_token";
+    private jwtTimeKey = "suyaa_token_time";
     // 程序信息
     name: string;
     version: string;
+
+    /**
+     * 获取Jwt信息
+     * @returns 
+     */
+    getJwt() {
+        let jwt = sessionStorage.getItem(this.jwtKey);
+        if (typeof jwt === "undefined") jwt = "";
+        if (jwt === null) jwt = "";
+        return jwt;
+    }
+
+    /**
+     * 判断Jwt是否在有效期内
+     * @returns 
+     */
+    isJwtValid() {
+        if (this.getJwt() === "") return false;
+        let jwtTime = sessionStorage.getItem(this.jwtTimeKey);
+        if (typeof jwtTime === "undefined") return false;
+        if (jwtTime === null) return false;
+        let time = parseInt(jwtTime);
+        let timeNow = Math.round(new Date().getTime() / 1000);
+        return timeNow < time;
+    }
+
     /**
      * 以Get方式获取API内容
      * @param url
@@ -59,6 +86,50 @@ export class Suyaa {
             headers: {
                 "Content-Type": "application/json"
             },
+            mode: 'cors',
+        });
+        if (response.status !== 200) console.error("Post '" + postUrl + "' Status " + response.status);
+        let res = await response.json();
+        if (!res.success) throw res.message;
+        return res.data;
+    }
+    /**
+     * 以Get方式获取API内容
+     * @param url
+     */
+    async jwtApiGet(url: string) {
+        // 设置头
+        let headers = new Headers();
+        headers.append("Content-Type", "application/json");
+        headers.append("Suyaa-Token", this.getJwt());
+        // 拼接Url
+        let postUrl = setting.apiUrl + url;
+        let response = await fetch(postUrl, {
+            method: "GET",
+            headers: headers,
+            mode: 'cors',
+        });
+        if (response.status !== 200) console.error("Get '" + postUrl + "' Status " + response.status);
+        let res = await response.json();
+        if (!res.success) throw res.message;
+        return res.data;
+    }
+    /**
+     * 以Post方式获取API内容
+     * @param url 地址
+     * @param data 
+     */
+    async jwtApiPost(url: string, data: any) {
+        // 设置头
+        let headers = new Headers();
+        headers.append("Content-Type", "application/json");
+        headers.append("Suyaa-Token", this.getJwt());
+        // 拼接Url
+        let postUrl = setting.apiUrl + url;
+        let response = await fetch(postUrl, {
+            method: "POST",
+            body: JSON.stringify(data),
+            headers: headers,
             mode: 'cors',
         });
         if (response.status !== 200) console.error("Post '" + postUrl + "' Status " + response.status);
@@ -122,13 +193,27 @@ export class Suyaa {
         this.events = new Array<SuyaaEvent>();
         this.name = "Suyaa Apis";
         this.version = ver.vserion;
-        let jwt = sessionStorage.getItem(this.jwtKey);
-        console.log(jwt);
-        if (jwt === null) {
+        let jwt = this.getJwt();
+        // console.log(jwt);
+        if (jwt === '') {
             setTimeout(async () => {
-                let data = await this.apiGet("/app/User/Jwt/Create");
-                console.log(data);
+                // 获取Jwt
+                let jwtNew = await this.apiGet(setting.jwtCreate);
+                console.log(jwtNew);
+                //sessionStorage.setItem(this.jwtKey, jwtNew);
+                sessionStorage.setItem(this.jwtKey, jwtNew.Token);
+                sessionStorage.setItem(this.jwtTimeKey, jwtNew.RenewalTime);
             }, 10);
+        } else {
+            if(!this.isJwtValid()){
+                setTimeout(async () => {
+                    // 更新Jwt
+                    let jwtNew = await this.apiGet(setting.jwtRenewal + "?token=" + jwt);
+                    console.log(jwtNew);
+                    sessionStorage.setItem(this.jwtKey, jwtNew.Token);
+                    sessionStorage.setItem(this.jwtTimeKey, jwtNew.RenewalTime);
+                }, 10);
+            }
         }
     }
 }

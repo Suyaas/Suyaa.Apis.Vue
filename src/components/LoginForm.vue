@@ -4,6 +4,11 @@ import loginUserImage from '/login/user.png'
 import loginPwdImage from '/login/password.png'
 import { def } from '@vue/shared';
 
+// 表单
+const data = ref({
+    user: "",
+    passwod: "",
+});
 let isUserFocus = ref(false);
 let isPwdFocus = ref(false);
 
@@ -16,6 +21,20 @@ const setUserFocus = function (isFocus: boolean) {
 const setPwdFocus = function (isFocus: boolean) {
     isPwdFocus.value = isFocus;
 };
+
+// 登录
+const login = function () {
+    let form = {
+        user: data.value.user,
+        password: data.value.passwod,
+    }
+    console.log(form);
+}
+
+// 登录
+const forget = function () {
+    console.log("forget");
+}
 </script>
 
 <template>
@@ -24,12 +43,14 @@ const setPwdFocus = function (isFocus: boolean) {
             <div class="login-bg"></div>
             <div class="login-form">
                 <p :class="{ selected: isUserFocus }"><img :src="loginUserImage" /><input placeholder="输入用户名" type="text"
-                        maxlength="50" @focus="setUserFocus(true)" @blur="setUserFocus(false)" /><br /></p>
+                        maxlength="50" @focus="setUserFocus(true)" @blur="setUserFocus(false)" v-model="data.user" /><br />
+                </p>
                 <p :class="{ selected: isPwdFocus }"><img :src="loginPwdImage" /><input placeholder="输入密码" type="password"
-                        maxlength="50" @focus="setPwdFocus(true)" @blur="setPwdFocus(false)" /><br /></p>
+                        maxlength="50" @focus="setPwdFocus(true)" @blur="setPwdFocus(false)" v-model="data.passwod" /><br />
+                </p>
                 <div>
-                    <div class="forgot"><a href="javascript:;">忘记密码</a></div>
-                    <div class="submit"><a href="javascript:;">确认登录</a></div>
+                    <div class="forgot"><a href="javascript:;" @click="forget()">忘记密码</a></div>
+                    <div class="submit"><a href="javascript:;" @click="login()">确认登录</a></div>
                     <br />
                 </div>
             </div>
