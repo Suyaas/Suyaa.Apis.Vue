@@ -65,9 +65,10 @@ export class Router {
   /**
    * 跳转
    */
-  goto(path?: string) {
+  goto(path?: string, reload?: boolean) {
     if (typeof path === "undefined") location.href = setting.rootRouter;
     location.href = setting.rootRouter + path;
+    if (reload ?? false) location.reload();
   }
 }
 

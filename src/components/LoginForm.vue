@@ -3,6 +3,8 @@ import { ref } from 'vue'
 import loginUserImage from '/login/user.png'
 import loginPwdImage from '/login/password.png'
 import { def } from '@vue/shared';
+import suyaa from '@/suyaa'
+import router from '@/suyaa/router';
 
 // 表单
 const data = ref({
@@ -28,7 +30,15 @@ const login = function () {
         user: data.value.user,
         password: data.value.passwod,
     }
-    console.log(form);
+    // 提交登录信息
+    suyaa.apiPost("/app/User/Authorize/Login", {
+        UserId: 10,
+        UserLoginId: "aaaaaa"
+    }).then((info) => {
+        // 保存token
+        suyaa.saveJwt(info);
+        router.goto();
+    });
 }
 
 // 登录

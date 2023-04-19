@@ -3,11 +3,19 @@ import ver from './version';
 import { VersionInfo } from './version';
 
 /**
+ * 事件类型
+ */
+export const EventTypes = {
+    API_FAIL: "api_fail",
+    API_ERROR: "api_error",
+};
+
+/**
  * Suyaa 事件
  */
 class SuyaaEvent {
     name: string;
-    func?: () => void;
+    func?: (arg: any) => void;
     enable: boolean;
     constructor() {
         this.name = "";
@@ -42,6 +50,15 @@ export class Suyaa {
     }
 
     /**
+     * 保存Jwt信息
+     * @returns 
+     */
+    saveJwt(info:any) {
+        sessionStorage.setItem(this.jwtKey, info.Token);
+        sessionStorage.setItem(this.jwtTimeKey, info.RenewalTime);
+    }
+
+    /**
      * 判断Jwt是否在有效期内
      * @returns 
      */
@@ -55,11 +72,31 @@ export class Suyaa {
         return timeNow < time;
     }
 
+    // 获取API结果
+    private async getApiReult(response: Response, onFail?: (message: string) => void) {
+        // 判断返回状态
+        if (response.status !== 200) {
+            this.raise(EventTypes.API_FAIL, response);
+            return null;
+        }
+        // 解析内容
+        let res = await response.json();
+        if (!res.success) {
+            if (typeof onFail === "function") {
+                onFail(res.message);
+            } else {
+                this.raise(EventTypes.API_FAIL, res.message);
+            }
+            return null;
+        }
+        return res.data;
+    }
+
     /**
      * 以Get方式获取API内容
      * @param url
      */
-    async apiGet(url: string) {
+    async apiGet(url: string, onFail?: (message: string) => void) {
         let postUrl = setting.apiUrl + url;
         let response = await fetch(postUrl, {
             method: "GET",
@@ -68,17 +105,14 @@ export class Suyaa {
             },
             mode: 'cors',
         });
-        if (response.status !== 200) console.error("Get '" + postUrl + "' Status " + response.status);
-        let res = await response.json();
-        if (!res.success) throw res.message;
-        return res.data;
+        return await this.getApiReult(response, onFail);
     }
     /**
      * 以Post方式获取API内容
      * @param url 地址
      * @param data 
      */
-    async apiPost(url: string, data: any) {
+    async apiPost(url: string, data: any, onFail?: (message: string) => void) {
         let postUrl = setting.apiUrl + url;
         let response = await fetch(postUrl, {
             method: "POST",
@@ -88,16 +122,13 @@ export class Suyaa {
             },
             mode: 'cors',
         });
-        if (response.status !== 200) console.error("Post '" + postUrl + "' Status " + response.status);
-        let res = await response.json();
-        if (!res.success) throw res.message;
-        return res.data;
+        return await this.getApiReult(response, onFail);
     }
     /**
      * 以Get方式获取API内容
      * @param url
      */
-    async jwtApiGet(url: string) {
+    async jwtApiGet(url: string, onFail?: (message: string) => void) {
         // 设置头
         let headers = new Headers();
         headers.append("Content-Type", "application/json");
@@ -109,17 +140,14 @@ export class Suyaa {
             headers: headers,
             mode: 'cors',
         });
-        if (response.status !== 200) console.error("Get '" + postUrl + "' Status " + response.status);
-        let res = await response.json();
-        if (!res.success) throw res.message;
-        return res.data;
+        return await this.getApiReult(response, onFail);
     }
     /**
      * 以Post方式获取API内容
      * @param url 地址
      * @param data 
      */
-    async jwtApiPost(url: string, data: any) {
+    async jwtApiPost(url: string, data: any, onFail?: (message: string) => void) {
         // 设置头
         let headers = new Headers();
         headers.append("Content-Type", "application/json");
@@ -132,10 +160,7 @@ export class Suyaa {
             headers: headers,
             mode: 'cors',
         });
-        if (response.status !== 200) console.error("Post '" + postUrl + "' Status " + response.status);
-        let res = await response.json();
-        if (!res.success) throw res.message;
-        return res.data;
+        return await this.getApiReult(response, onFail);
     }
     /**
      * 注册就绪事件
@@ -164,7 +189,7 @@ export class Suyaa {
      * @param evt 
      * @param fn 
      */
-    on(evt: string, fn: () => void) {
+    on(evt: string, fn: (evt: any) => void) {
         let self = this;
         let e: SuyaaEvent = {
             name: evt,
@@ -178,22 +203,30 @@ export class Suyaa {
      * @param evt 
      * @param clean 
      */
-    raise(evt: string, clean: boolean = false) {
+    raise(evt: string, arg: any, clean: boolean = false) {
         let self = this;
         // 依次执行函数
         for (let i = 0; i < self.events.length; i++) {
             var e = self.events[i];
             if (!e.enable) continue;
-            if (typeof e.func === "function") e.func();
+            if (typeof e.func === "function") e.func(arg);
             if (clean) e.enable = false;
         }
     }
+    // 构造函数
     constructor() {
         this.handles = new Array<() => void>();
         this.events = new Array<SuyaaEvent>();
         this.name = "Suyaa Apis";
         this.version = ver.vserion;
         let jwt = this.getJwt();
+        // 注册交互失败和错误事件
+        this.on(EventTypes.API_FAIL, function (message: string) {
+            console.warn(message);
+        });
+        this.on(EventTypes.API_ERROR, function (resp: Response) {
+            console.error("Url " + resp.url + " Status " + resp.status);
+        });
         // console.log(jwt);
         if (jwt === '') {
             setTimeout(async () => {
@@ -201,17 +234,15 @@ export class Suyaa {
                 let jwtNew = await this.apiGet(setting.jwtCreate);
                 console.log(jwtNew);
                 //sessionStorage.setItem(this.jwtKey, jwtNew);
-                sessionStorage.setItem(this.jwtKey, jwtNew.Token);
-                sessionStorage.setItem(this.jwtTimeKey, jwtNew.RenewalTime);
+                this.saveJwt(jwtNew);
             }, 10);
         } else {
-            if(!this.isJwtValid()){
+            if (!this.isJwtValid()) {
                 setTimeout(async () => {
                     // 更新Jwt
                     let jwtNew = await this.apiGet(setting.jwtRenewal + "?token=" + jwt);
                     console.log(jwtNew);
-                    sessionStorage.setItem(this.jwtKey, jwtNew.Token);
-                    sessionStorage.setItem(this.jwtTimeKey, jwtNew.RenewalTime);
+                    this.saveJwt(jwtNew);
                 }, 10);
             }
         }
